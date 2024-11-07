@@ -1,0 +1,68 @@
+version: '3'
+
+services:
+  web:
+    build:
+      context: .
+    ports: 
+      - "8000:8000"
+    command: ["sh", "./start.sh"]
+    volumes:
+      - .:/app
+    env_file:
+      - .env
+    depends_on:
+      - postgres_db
+
+  postgres_db: 
+    image: postgres:15.8
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    environment:
+      - POSTGRES_DB=${SQL_NAME}
+      - POSTGRES_USER=${SQL_USER}
+      - POSTGRES_PASSWORD=${SQL_PASSWORD}
+
+  npm:
+    image: jc21/nginx-proxy-manager:latest
+    container_name: nginx-proxy-manager
+    restart: unless-stopped
+    ports:
+      - "8080:80"
+      - "81:81"
+      - "443:443"
+    environment:
+      DB_MYSQL_HOST: "npm-db"
+      DB_MYSQL_PORT: 3306
+      DB_MYSQL_USER: "npm"
+      DB_MYSQL_PASSWORD: "npm_password"
+      DB_MYSQL_NAME: "npm"
+    volumes:
+      - ./letsencrypt:/etc/letsencrypt  # Mount Let's Encrypt directory
+      - ./data:/data
+    depends_on:
+      - npm-db
+    networks:
+      - npm_network
+
+  npm-db:
+    image: mariadb:latest
+    container_name: npm-db
+    environment:
+      MYSQL_ROOT_PASSWORD: "root_password"
+      MYSQL_DATABASE: "npm"
+      MYSQL_USER: "npm"
+      MYSQL_PASSWORD: "npm_password"
+    volumes:
+      - npm_db_data:/var/lib/mysql
+    networks:
+      - npm_network
+
+volumes:
+  postgres_data:
+  npm_db_data:
+  nginx_data:
+  letsencrypt:  # Define the volume for Let's Encrypt certs
+
+networks:
+  npm_network:
